@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Akj Library</title>
+<style>
+:root{
+  --bg:#f7f5f0; --panel:#ffffff; --ink:#1f2320; --sub:#6b6f6a;
+  --accent:#3f6b4e; --accent2:#c98a3a; --line:#e4e0d6; --hover:#f0ede4;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171a17; --panel:#20241f; --ink:#eee; --sub:#9aa197;
+    --accent:#7fbf94; --accent2:#e0a75e; --line:#333a32; --hover:#2a2f28;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171a17; --panel:#20241f; --ink:#eee; --sub:#9aa197;
+  --accent:#7fbf94; --accent2:#e0a75e; --line:#333a32; --hover:#2a2f28;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%;}
+*{box-sizing:border-box;}
+body{
+  margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;
+}
+header{
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;
+  border-bottom:1px solid var(--line);background:var(--panel);
+  flex-shrink:0;
+}
+header h1{margin:0;font-size:17px;letter-spacing:.2px;}
+header p{margin:2px 0 0;font-size:12px;color:var(--sub);}
+.wrap{flex:1;display:flex;min-height:0;flex-direction:row;}
+@media (max-width:760px){ .wrap{flex-direction:column;} }
+.viewer{
+  flex:1 1 55%;min-width:0;display:flex;flex-direction:column;
+  border-right:1px solid var(--line);background:var(--panel);
+}
+@media (max-width:760px){ .viewer{border-right:none;border-bottom:1px solid var(--line);min-height:45vh;} }
+.viewer .titlebar{padding:8px 12px;font-size:13px;color:var(--sub);border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pagebar{
+  display:flex;align-items:center;gap:8px;padding:6px 12px;
+  border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0;
+}
+.pagebar button{
+  border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  border-radius:6px;padding:5px 10px;font-size:12.5px;cursor:pointer;
+  display:flex;align-items:center;gap:4px;
+}
+.pagebar button:active{background:var(--hover);}
+.pagebar button:disabled{opacity:.4;cursor:default;}
+.pagebar .pagelabel{font-size:12.5px;color:var(--sub);white-space:nowrap;}
+.pagebar .pagelabel b{color:var(--ink);}
+.pagebar input{
+  width:48px;text-align:center;border:1px solid var(--line);border-radius:6px;
+  background:var(--bg);color:var(--ink);font-size:12.5px;padding:4px 2px;
+}
+.viewer iframe{flex:1;width:100%;border:0;background:#525659;}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:14px;text-align:center;padding:20px;}
+.search{padding:8px 12px;border-bottom:1px solid var(--line);}
+.search input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:13px;}
+.tree{flex:1 1 45%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0;}
+.folder>.flabel{
+  display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;
+  font-size:14px;font-weight:600;user-select:none;
+}
+.folder>.flabel:active,.folder>.flabel:hover{background:var(--hover);}
+.folder .chev{transition:transform .15s;color:var(--accent);font-size:11px;width:10px;}
+.folder.open>.flabel .chev{transform:rotate(90deg);}
+.folder .count{margin-left:auto;font-size:11px;color:var(--sub);font-weight:400;}
+.children{display:none;padding-left:20px;border-left:1px solid var(--line);margin-left:19px;}
+.folder.open>.children{display:block;}
+.file{
+  display:flex;align-items:flex-start;gap:8px;padding:7px 14px 7px 4px;
+  cursor:pointer;font-size:12.5px;line-height:1.35;color:var(--ink);border-radius:6px;margin:1px 6px;
+}
+.file:hover,.file:active{background:var(--hover);}
+.file.active{background:var(--accent);color:#fff;}
+.file .ic{flex-shrink:0;color:var(--accent2);}
+.file.active .ic{color:#fff;}
+.placeholder{padding:6px 14px 6px 4px;font-size:12px;color:var(--sub);font-style:italic;}
+footer{padding:6px 14px calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;color:var(--sub);border-top:1px solid var(--line);background:var(--panel);}
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 Akj Library</h1>
+  <p>Tap a folder to expand, tap a PDF to open it on the left.</p>
+</header>
+<div class="wrap">
+  <div class="viewer">
+    <div class="titlebar" id="titlebar">No file selected</div>
+    <div class="pagebar" id="pagebar" style="display:none;">
+      <button id="prevBtn">◀ Prev</button>
+      <span class="pagelabel">Page <input id="pageInput" type="number" min="1" value="1"> <span id="pageOf"></span></span>
+      <button id="nextBtn">Next ▶</button>
+      <button id="goBtn" style="margin-left:auto;">Go</button>
+    </div>
+    <div class="empty" id="emptyState">Select a PDF from the list to preview it here.</div>
+    <iframe id="pdfFrame" style="display:none;" allow="autoplay"></iframe>
+  </div>
+  <div style="flex:1 1 45%;display:flex;flex-direction:column;min-height:0;">
+    <div class="search"><input id="searchBox" placeholder="Search files & folders..."></div>
+    <div class="tree" id="tree"></div>
+  </div>
+</div>
+<footer>Akj folder · Drive</footer>
+<script>
+const data = [
+  {name:"climatology", files:[
+    ["1. Composition & Structure of the Atmosphere","1Ad-tOcRl_BLRrkTAKd9xwvHPIHPqHcBk"],
+    ["2. Motions of the Earth and Solar Insolation","19x_FrkZZLVqM-x_0ZWtwsdwcQqw-7Mfr"],
+    ["3. Heating and Cooling & Heat Budget of Earth","1PmFxB7iTyK5DDPFsYVypeIjd8SiWKNrV"],
+    ["4. Atmospheric Air-Pressure and Winds","1N-h4b4zArbj3cSfxXlUlbq0IYKaZ1191"],
+    ["5. Tri-Cellular Model of Atmospheric Circulation","15R6EDYNm1ujmy25c9xO2CyFoFHZ-zhky"],
+    ["6. Jet Streams, Coriolis and Geostrophic Winds","10aCxNXw8nySccNMvbDHPv9a6sEyKPGDN"],
+    ["7. Concept of Air-masses & Fronts","1aUmF3N_aHYZen3abSwM-2X6i06b17qA_"],
+    ["8. ENSO Events (El Nino, La Nina, Southern Oscillations)","1Om52WhBV51Lt7CA4KokHEqL7O_4Ky0fI"],
+    ["9. Tropical, Temperate and Anti-Cyclone","1SqBFuKXG2IGFTumuwDHWKFrZpry6b5eU"],
+    ["10. Meteorological Hazards and Disasters","19l2EieTPC2ZGl_vULMFWnB2e15RApUGx"],
+    ["11. Concept of Clouds & Types of Precipitation","1MQpgmO5k4cCs4mFggVkEhAAxcVHrS7TX"],
+    ["12. Local Winds and Its World Distribution","1OkKK_8igR9fQ8tuBMCUV4m267FaQNs3v"],
+    ["13. Climate Change Evidences and Causes","1G4KghvB-9XApq1b-UJeLTmcPA497PjnJ"]
+  ]},
+  {name:"Goi", sub:[
+    {name:"Physiography", files:[
+      ["1. India - Size and Location","1MweHV63LmV00FUOEWuxnzDUrEMEEo2Xi"],
+      ["2. Geological Structure of India","11jgZ0n-0500bSNGYyZRbFXfzWIKfKVbr"],
+      ["3. Major Physiographic Regions and their Characteristics","1LUG9B_wRW3vt4e4lSS1KnXikqPg6ploA"],
+      ["4. Drainage System of India","1nh10n0vaxZ_x2RQps5K5xLutvuTsxhhE"],
+      ["5. Major Passes of India - Himalayas & Peninsular","1Yz3na938GMjwUXgHvttd2DrnGYH6JdfZ"],
+      ["6. Major Peaks & Glacier of India","1IT3QFbjlOWmw7FNgxYDjfJD1qyyVMN_l"],
+      ["7. Major Lakes and Coastline of India","1kG-pDe-xJGyFhGLzh_wGiiHakg6FSxZf"],
+      ["8. Major Soil of India","159U_ON-Faw-15pXycXkyhQodhYof4_4R"],
+      ["9. Natural Vegetation of India","1ZFxtYRK_zXzhvo3UhA5khgfdPIWNkDBr"],
+      ["10. National Protected Areas of India","1l4zFPh3Q4fh_JzzQwtDn6qIRNLV2ImDj"],
+      ["11. Himalayan Cryosphere","1SiK2bzBSECSx7z3PxWOv5H7kBHI2bZv1"]
+    ]},
+    {name:"Agriculture", files:[
+      ["1. Characteristics and Problems of Indian Agriculture","1CYO9ihzHG1OKx46jdLmqmflR3amnK49R"],
+      ["2. Land Reforms in India","15KN-ZYhNIOykzf9HLWx_mFJDD7Gy-pvw"],
+      ["3. Green Revolution in India","1nGfUTGP7LRjgNwpS1G-S14_E61PlSAec"],
+      ["4. Agro-climatic Zone of India","1j_p8Y8ovlCv_Chd5ju8J9gNcy-VLT7JG"],
+      ["5. Major Crops of India Part-1","1Tjm4LxOK1BiMgGZC_r1c6bsTv7OGoLMQ"],
+      ["5. Major Crops of India Part-2","1gGBcj6WBeN42hz-gEUhwKr59eyS3KLQo"],
+      ["Development & Patterns of Transport Network in India Part-1","1LYA6QMpPeuUwBnk7kJNP7z_1gaBAbvqu"]
+    ]}
+  ], files:[
+    ["1. Climatic Divisions by Koppen, Thornthwaite & Trewartha","1dAA00FgFSoK-WEOd78IPXSIAXBnG8XKT"],
+    ["2. Mechanism of Indian Monsoon","1MKTC23tnJbiPbS3SyT2MVChigBNIhAte"],
+    ["1. Natural Disasters in India","19-FtTUiKGx849if5KMcyi5aG8EuBHRzi"],
+    ["1. Racial Classification of Indian People","11o2LFiP9wLh2WGx4nmpvwvDftNaocDSN"],
+    ["2. Demography and Density of India","1DmUTZvgPoaq_mZ7Cku4zrsCV-opH7X6y"],
+    ["3. Population Policy of India","1dkx0Sg9_zskAelWzXQM9Bb8S1c9c_-V0"],
+    ["4. Tribal People of India","1eTXb9U51j5eLR370CxmOdxerZpNEwSZ-"],
+    ["1. Industries in India","13NAurccDEdms4UN3zdidJTyTtyrCMg-9"],
+    ["2. Industrial Policy in India","1ECAKG9r_DprWwaZyjFuBA3whrKENGf7T"],
+    ["1. Development & Patterns of Transport Network in India Part-1","1i1_FLq4RexMXXpF6kAH227k4cM__jr1P"],
+    ["1. Development & Patterns of Transport Network in India Part-2","18yOzsdSbL_OidhaeBPZB80_41zcXlSw3"],
+    ["1. Regional Development and Planning in India Part-I","104K4gvpRHjfrg6KkAlstMPpNuh4LF3iY"],
+    ["1. Regional Development and Planning in India Part-II","1T7R_6F7TLhfjYFVSh7xXvxlSLIZlsn8w"]
+  ]},
+  {name:"Mixed", files:[
+    ["1. Components of Ecosystem (Class PPT)","1McfmTKvEXT9D8Se2e3VOdCEyTWB4E414"],
+    ["2. Functions of an Ecosystem","1EA7gZXzpRK1aZ3AoV2z2CRosD6DU-8zF"],
+    ["3. Endogenetic & Exogenetic Forces","1Q5s2Eh8vvB5_w2Cf2BNOjJrpb5xHblxp"],
+    ["4. Anthropogenic Activities & Their Impacts on Environment","1zNVCQ3ovU5v5F9VbhfAWITLZ2GWAcS7i"],
+    ["4. Concept of Fold and Fault","1gsxhgkzy6fPCVUEuRBDR2VxFcmL1cO-l"],
+    ["5. Earth's Interior, Earthquake and Seismicity","1AQIbJ7ZbewxqL7LvXcEzubX8IAPOD9km"],
+    ["5. Environmental Issues Local, Regional and Global","1-aPRIsmRUJztnr5LIMIxEmvlKi1yFNTE"],
+    ["6. Concept of Vulcanicity and Associated Landforms","1-qSjBLrgPu9XRvOvp5bC0hzdBcsMSRZM"],
+    ["6. Natural Hazards & Disasters Mitigation Strategies","1TcKu1_a36Hn7a7wr0DlWla6d5SHEDD8H"],
+    ["6. Coral Reef - Concept and Theories","1InDRvV52hiLWgn3okAQXVAitGOFE1RoR"],
+    ["7. Concept of Rocks and Its Types","1SMuYeDaLwis8-kt4-ZT8-Jmc8Vx6Uqx5"],
+    ["7. Environmental Hazards and Disasters","1fjbB9FY5aiBbRX2gETcdsEjdejU3Kykz"],
+    ["7. Sea Level Change","13JfLoA917cZKe1fkofK5T0z-4qaoI0QS"],
+    ["8. Concept of Drainage System and Pattern","1TJTxrTSgWtVzw1AZI_X0-kdzU9DepKjp"],
+    ["8. Climate Change: Socio-Economic and Political Dimensions","11UpcAHmDathyDWXfB_MMMQ_aeHuLiF9g"],
+    ["9. Natural and Energy Resources","11MRtIeM3dXFkpQ5ljlxq59fMk-xYoYIt"],
+    ["9. Geomorphic Hazards","1wJuSr4Mo44j_VfRF-TFy6yPOQSxiJ1lo"],
+    ["10. Erosional & Depositional Work of Running Water","19acPDvG_Hwe2N4YffAZ9qfw9gcJUSwYd"],
+    ["10. International Treaties, Programmes and Policies","1Tq7skcBuSq18PabH31VDcwYLwPmZW1QI"],
+    ["11. Erosional & Depositional Work of Underground Water","1S8L6Y1SFaD4mydczD6H9-pg7SWi8VNl2"],
+    ["11. Brundtland Commission & Agenda 21","13CUiZ1PjoHGtGHK_mBTDEvVEIupyr56_"],
+    ["12. Erosional & Depositional Work of Glacier","1uni9I9VDDxnQtPdclEjAYJmD9hZjpmg6"],
+    ["12. Kyoto Protocol, Paris Agreement & ISA","1Iq7C5P5pemIk93gKxdg7pu0IpxbdUUfb"],
+    ["13. Erosional & Depositional Work of Peri-Glacier","1ViKQLNFLzJtz5hGIpyBHB5Wi1nJO6Qly"],
+    ["13. MDG & SDG Goals","1CgTsyKIONP3z4RY7TfDYL_GWB44x1oU6"],
+    ["14. Erosional & Depositional Landform of Sea Waves","1P-4NOorZrfBHaLQpMXT_VypZsKBZILCd"],
+    ["14. National Programmes and Policies","1FyG1NCAEuvQqDtqtmdNLyS3JBjHMSqXP"],
+    ["15. Erosional & Depositional Work of Wind","1Hny0Wd5YuUiJvuq-9E9Powx9VCq9Vvda"],
+    ["15. Environmental Protection Act (1987), NAPCC","1unAnR57h9wjSRkdbMSLIICXyhGbdaXm6"],
+    ["16. Ozone Layer Depletion and Preservation","1b1eAijotashz_iZMtWTmRRLAwhSvS3mi"],
+    ["18. Soil Genesis Classification & Distribution","1g-fSrmHlKyVWkH35WTxa5g8bCYNfsQk9"],
+    ["19. Zoogeographic Regions","1bMddGjDn6axV3uYysVX42Bd4HGC4scHh"],
+    ["20. Environmental Ethics, Deep Ecology & Human Ecology","1-V7OGHQqRQFQqPiIof7bxtJrIOL8ySpO"],
+    ["1. Fundamental Concepts of Geomorphology","1TSblAdKV-cO-9ZJybnLYb-eRyAAguDMI"],
+    ["1. Relief Features of Oceans","1IUCqEwPdq4ipH2J-Hlb5oqykUFdnfCv6"],
+    ["2. The Geological Time Scale (GTS)","18h8ToqvonebsYKaSGqx-PtVU7qxREjb6"],
+    ["2. Temperature, Range and Salinity of Ocean Water","1wk_KimMmR2woGgcF-xATTDOjMYt50jRG"],
+    ["3. Ocean Deposits","1J85b5Vvq30qqEQobEHBCz4g0IapFgl6G"],
+    ["4. Tide and Ebb","1dCyWdnxXh2ZcUXlwt9SYhTmMWSjkVL7U"]
+  ]},
+  {name:"Teaching aptitude", sub:[
+    {name:"Research aptitude", files:[
+      ["1. Meaning and Characteristics of Research","11vuQBMZcN9FQxIr3xR0qOdCjnrtlJu-C"],
+      ["2. Type of Research","1URI7aYpNKwPUlSFOfz3L9Z8plZInsDgC"],
+      ["3. Research Approaches","1t-qgzo28CV5Z_yZkmPorHfuxfedEygbr"],
+      ["4. Research Steps","170eo0ytFZNmVmOjz0F3R3ImRbEBPJuwP"],
+      ["5. Formulation of Research Problem, Hypothesis & Design","1A1TyPK70YNgT-_shx62H1v1826XKCo5k"],
+      ["6. Instrument of Data Collection","15HnuTWfmjVT28Lal0ab5wPtUUZYgdTJj"],
+      ["7. Sampling","1fE6-TmSCHYKLMm5Dbvl0Fsdq1HtrlPa5"],
+      ["8. Research Proposal Writing, Data Collection & Visualisation","1o_B6ni61QlidtsChTyiRVdHjjlvO2pat"],
+      ["9. Report Writing, Referencing, Citation, Plagiarism","1DpZGjpkFwUoa82-PeOoscHcKJfCb8IVG"],
+      ["10. Postivist and Postpostivist Approach","1E-UfbzN4jC_l4trP6iqL6xkmp-eNlk91"],
+      ["11. Research Ethics, Plagiarism, Report Writing, ICT","1_Zal_cE1xQlZ0E-mGS2_Cnoni5VaxSpd"]
+    ]},
+    {name:"Math", files:[
+      ["Number System Class PPT","1swR-bQ5Y8ZJsXeII-KJTScNSVzyiTcy5"],
+      ["Number System Test Paper","1arNtpA0Hz90hO7ubIPEokcNmY8su6-7p"],
+      ["Simplification Class PPT","1vi_mpX5t0l4UCsyLG5IdZU8egKbtcvYQ"],
+      ["Simplification Test Paper","1VKAMWiCw6gBczL2_nsY4SdWzW9Aejz4F"],
+      ["LCM Theory Class PPT","1nVoO05ARRjszrLC3tgcdKGhOfcdw2B2y"],
+      ["Surds and Indices Class PPT","1kEeEnBMHTI5C73m-kXGcN68rPImt2Sq0"],
+      ["Ratio Class PPT","1F-JmX0Uk9naorPURW7zD8mu2LzMgzTnV"],
+      ["Simple Interest","1x6BKBnZAvKM4XjGSuM8bchSDgR7C-eLl"],
+      ["Compound Interest","1DLOf925ghfFiRDzjcvJ_Ve2rVQMfuBMC"],
+      ["Time, Speed and Distance","1SL82p6x_Y7DkNrcPHXsRPU1YwaOd2d_F"],
+      ["Train","11J5ZHY91iSDJfA7q2JwX_m_la29LWggp"],
+      ["Boat","12Ki6ck6Ptptmzq7Zaud9S9hxvwqmzn0e"],
+      ["Time and Work","1S7dYVXCxApwMZvVEZShpsb9G2rq6ReV2"],
+      ["Average","1RD-LJLyUb92jwzYczO1nFtaXeKVE066s"],
+      ["Percentage","1iUD2QpRdV0g3pyjpxoqhbN-dTKyutfgR"]
+    ]},
+    {name:"Env", files:[
+      ["1. Components of Ecosystem (Class PPT)","16qiMBlK2w9I4Eb6kS_f0P-AoivK-scOK"],
+      ["2. Functions of an Ecosystem","114BB5oqVc5Qcyb6Z3oysAgL4r1h2hpox"],
+      ["4. Anthropogenic Activities & Their Impacts on Environment","1BlJhoQVql-zONxT-pJrXeLDJWzxRCbon"],
+      ["5. Environmental Issues Local, Regional and Global","1rfGRdvtitq4WCHsqCfRpt3R5B5A1mkwH"],
+      ["6. Natural Hazards & Disasters Mitigation Strategies","1hpScxc6Q3GKmFCTJXF2Lr7hzrkhCD_Qa"],
+      ["7. Environmental Hazards and Disasters","1Vg1JDaQBIfKG3dd4SsKeBlnbGlGP64e_"],
+      ["8. Climate Change: Socio-Economic and Political Dimensions","1lwI5ZSidMPZUqGIOd3yiEVBVop8ka6hH"],
+      ["9. Natural and Energy Resources","16ZA3Gc6moR42JBDBOVBXTjgGvC_A8jHz"],
+      ["11. Brundtland Commission & Agenda 21","1-RFYZjy9B5PkUg6HiXpLsxBrtTo_Q7EW"],
+      ["12. Kyoto Protocol, Paris Agreement & ISA","1lTGBIhWckWf9XUltbTvLooGodL1MqnYJ"],
+      ["13. MDG & SDG Goals","17kWjXIfUaw0Rcg3iZK5EIjHQnJL6FaE3"],
+      ["14. National Programmes and Policies","1xEFmOFhuCKyXI5xhDDIdALJgDgwbl9l5"],
+      ["15. Environmental Protection Act (1987), NAPCC","1tWVbF5zV0h1UNYrja4vuxIFAQVi6N-mL"],
+      ["16. Ozone Layer Depletion and Preservation","1URlxqw6Pxxk7eXWXCUYy_xX0CDU8TMLN"],
+      ["17. Wetlands with Special Reference of India","1xGkne08KOpdRyF3QDFQAlgqMqy4aoj_k"],
+      ["18. Soil Genesis Classification & Distribution","1iME6GvTtT-nACkYu30xTPPcXmClRJ0dE"],
+      ["19. Zoogeographic Regions","1A1PrJ8GfxKW4YdG-CkmgWXCmhDXC4wtQ"],
+      ["20. Environmental Ethics, Deep Ecology & Human Ecology","1SBbRg29Dwe3Zr1OdsaKV-PdeokPgFJMp"]
+    ]},
+    {name:"Reasoning", files:[
+      ["Complete Indian Logic","1sEhjJ5e4vmGhRRL7uTc2q5_03_jS8dYf"],
+      ["Logical Reasoning","1xnaNMT0bD4Ed-6evWJnSLCDVQ1gqVt61"],
+      ["Coding and Decoding","1dxOfPB6z9hP54erKElBZzM7fIAARsPq5"],
+      ["Distance and Direction","1O908m0xL-Y6AeXg7mqZD0YXDG_DZtpl1"],
+      ["Number Series","1NmYsCn0nYijRQNK5xoq3gFIV66T8Uwwh"],
+      ["Letter Series","1e-gKz92MBViteYlkFxxVaXof6yzMWAyG"],
+      ["Analogy","19rVSKanS-5rOZyvI8hFATqn5afrlpndT"],
+      ["Classification","1oyggvMMl00CzKkdvRVVPBWR9Sx-rjOme"]
+    ]}
+  ]},
+  {name:"socio,cultural,political", files:[
+    ["1. Boundaries and Frontiers (special ref. India)","1dkPqk3dFGaultFu0xYZXaYS4sN1QgYeM"],
+    ["2. Geography of Federalism","1i1IK9Hb-IZd8fnqlL5SuzCwqeTbhyuuS"],
+    ["3. Electoral Reforms in India","1fLZfOrnxPJA_p2i4MkXBH5ocnAhm6ght"],
+    ["4. Determinants of Electoral Behaviour","19oKxESjNrpyrYq0Uf1PWIMQO8JDAcXNe"],
+    ["5. Regional Organisations (SAARC, ASEAN, OPEC, EU)","1JC4U_sA_EDtlwm4cxuYEqbqOnastrC0A"],
+    ["6. Geopolitics of World Resources & Indian Ocean","1hw1sFauHZbqAO3ERmZx4uYeT6F_4jTo1"],
+    ["7. Trends and Developments in Political Geography","1It5otNPWor2YI8t2FofvshtwobJu0qeJ"],
+    ["1. Concept of Culture & its Constituents","1qBbaVArwgzZzZ1-E1IrFXQvH3fiThD0X"],
+    ["2. Cultural Convergence, Social Structure and Processes","1GN_f7PK0RuH_TQq_gEjD-s2YQPGh6hZR"],
+    ["3. Social Well-being and Quality of Life","1VgO91c_jk6lCEBmSo8A8jY-MFE930OGE"],
+    ["4. Environment and Human Health, Diseases Ecology","1XCe-vX5fXiyL8tUx0EZ_yepJWxG2F6I6"],
+    ["5. Health and Nutritional Status","1Z54tWn4tAiHO19_-HD-BdlMS2IW87neX"],
+    ["6. Health Care Planning and Policies in India","1My44XfDmT-B7Di9X8A8WDvmtotRTfBsP"],
+    ["7. Medical Tourism in India","1Ytya6wYKO9VV66xamNgYAUlKusVt7ipD"],
+    ["8. Concept of Race and Basis of Classification","1tY-kVmmZ7J0QmRaM1BtboFaOTs7HZXBz"],
+    ["9. Major Cultural Realm of World","1D2RfrolwMQaEB8K0GeL3RCdWSxKxq_V3"],
+    ["10. Major Language Family of World","1WcZnvVpFm0WDh2Uv5dttpv6SvPqPQDgN"],
+    ["11. Major Language Families of India","1VC4HE8ze6PhlNxQgbgaUUOB0nZdoU5Bb"],
+    ["12. Major Tribes of the World","1YkCZlAth7Jym-9CX0PvHXDwCf_0FwSIz"],
+    ["13. Major Religions of the World","1wBM8sfamyuqAEGURMOYmtDpUf81pLlZv"],
+    ["14. Caste System in India","1zFiyQvyz0ILBMrMCEsyco0rbjukKQOtN"],
+    ["1. Sectors of Economy","17Y8cJAXg-eNOLJy_dbm7rGcRBB5tK8__"],
+    ["1. Regional Development & Planning","1lk0qSmiKEIl_TAqqPWfUFz5JA7GH89fB"],
+    ["1. Industrial, Transport and Trade Geography Part I","1WsO3pszGCHOCuSQtZRMlJQfaabul_P9H"],
+    ["2. Industrial, Transport and Trade Geography Part II","1GDTYzoNMp7SBFJQOFN9hNRwli8Sx_r8J"],
+    ["1. Complete Agricultural Geography","1l1Vi7ouO1xpeC6Hhe4j8fQWdzJkip79H"],
+    ["2. Natural Resources - Renewable","1Jwbt-UwchNUlrRy85o_7mU8o2BpCDU81"],
+    ["3. Natural Resources - Non-renewable","1Sv72E27xBver0px4m5STxazpxZKcrGez"],
+    ["4. Natural Resources Management","13rVD9mhmr-vyPkLPYcBCANzwjNXT0nDz"],
+    ["5. World Energy Crisis","14AigPF14rF8SrkTcqUBzn_vZinYVaTD0"]
+  ]},
+  {name:"Geomorphology", files:[
+    ["1. Fundamental Concepts of Geomorphology","10VHVxuHAhdO5t3-NU2qMOXarss7EvZ3T"],
+    ["2. The Geological Time Scale (GTS)","1kApFTNFdWlQ9wIh7CDhO2-AZib9Nf5Hm"],
+    ["3. Endogenetic & Exogenetic Forces","1U1-OJiA_cZc7bpkoHutSiC9-3LDJJhmc"],
+    ["4. Concept of Fold and Fault","1nF6Mbu4JSDy-BVhAehj_BNClrgOpTCu4"],
+    ["5. Earth's Interior, Earthquake and Seismicity","15zGXekMzWRuzLURSMZQr5j09_Q-Yf9XT"],
+    ["6. Concept of Vulcanicity and Associated Landforms","1dRt6Xn_bzauAHCOy7FB3DVlJbsSLRWdu"],
+    ["7. Concept of Rocks and Its Types","12V_Wao6WxcDk-UliOIXenaKJzvIGdQfb"],
+    ["8. Concept of Drainage System and Pattern","1rnJ5dZ2Tl7K9G6R_Di7sko7BSdpR5l45"],
+    ["9. Geomorphic Hazards","1_CE9QwAtcIEfV9rF0iD1A7dscKUC-BM2"],
+    ["10. Erosional & Depositional Work of Running Water","1Xfy2kjalZp5hOdzz08uRj8e7PB0xabkv"],
+    ["11. Erosional & Depositional Work of Underground Water","1b1Y2d5VhYy9INoy8mNT1zpKrBE3YFiIh"],
+    ["12. Erosional & Depositional Work of Glacier","1LxKn4gR_V9leKACiXCxWCERKmnGNudQn"],
+    ["13. Erosional & Depositional Work of Peri-Glacier","19JJpU6GseRIiAzikvTDcyoG_gt9IjtQt"],
+    ["14. Erosional & Depositional Landform of Sea Waves","1gsw0dSWskAxuoO61BG82mIWWvIVoiYYm"],
+    ["15. Erosional & Depositional Work of Wind","1SUdotSIA75U2_tHpggVGbff_6aw_9NRu"]
+  ]},
+  {name:"Scale", files:[
+    ["1. Scale","1oQzti635t-I1WDk__f0L4SRjRjLbvrH-"],
+    ["2. Type of Maps","1NIY9q5E79W8lSf-nKbey7J5l5ml-DEXe"],
+    ["3. Projections and their Types","1WNb3L8ONAAE6kHszZAspr89Hyc9in_M9"],
+    ["Morphometric Analysis (English)","1GGl-YBmxxZ49u21hskPtuUzdk8cCGMLr"],
+    ["Morphometric Analysis (Hindi)","19cHIdYa-E5X1SrR1xkEWzpwNbuMYjbo3"]
+  ]},
+  {name:"Thoughts", files:[
+    ["Class 02. Greek Geographers","1wDSx0Gs2_cMY3vKFlAJ9CStVGJxNcILZ"],
+    ["Class 03. Roman Geographers","18FICeJ86IFDNcKCpMf5AQpkCALD9qZTU"],
+    ["Class 04. Contribution of Arab Geographers","1ja9WuUDBgXdHLtTdd4OYbc6cz0aIDOX6"],
+    ["Class 05. Contribution of Chinese and Indian Geographers","1oi5kjN55rur6poeb740jr2FtzuSuBdOK"],
+    ["Class 06. German School of Geography","1fZ9IHsOUkW5rtNGVGFxBjk8bu0go5JGP"],
+    ["Class 07. French School of Geography","1Uon6zRQMdONeeJN_lC4KLFPgwqT2V068"],
+    ["Class 08. American School of Geography","1EY_VfnN9uegyX7jHP1aKMkqXUbi3gyWX"],
+    ["Class 09. British School of Geography","1T28BoGQ-sU-CJGKOOYSVzDlQdK9HzVo8"],
+    ["Class 11. Geography of Modern India","1VDwJm5cJp4UQ1FeYSlbfqRW11SBITseW"],
+    ["Class 12-13. Contemporary Trends in Indian Geography","16WPQLAAjfcSIaoJ-gDR8xY6Hq3ZEILRy"],
+    ["Class 14. Impact of Darwinian Theory on Geog. Thought","1vsphzPRez-TbB83OkJ75KERBGei-T9uT"],
+    ["Class 15. Determinism Possibilism","1gMrUYyknpDSVD_PvLRJIP9bv-EZYoSX3"],
+    ["Class 16. Dualism in Geography","1czLywtPr2mlUPV33JqCBeYDNaAKp4MWo"],
+    ["Class 17-18. Paradigm Shift in Geography","1D36_P854o8cza8-rHRT5DCP7M6UVKTVZ"],
+    ["Class 19-20. Postivism, Humanism, Behaviouralism","18KwlGmQqfVAqzcBWjHgumCaa0dswCZjF"],
+    ["Class 21. Structuralism and Post-structuralism","1vMjOTqwf_fyBxMLwXlRNk-8gEoq6E6jv"],
+    ["Class 22. Modernism and Post-modernism","1Z3X5TAOJZL0yy-bQUdPXIQqMjGbBhK75"]
+  ]},
+  {name:"Models & theories", files:[
+    ["1","1ZuPcBJHELi8WpOTMQ8fhch-kc0au4agR"],["2","1PXugSb9NnAud8YOtFM-xkKr6sgeQpNyf"],
+    ["3","1-IjtQcw2mwaWDR9cuuPAKH0aaDf8FJpM"],["4","1Vo12prckBHG-FL9Z1hvo1vFoBe7GKy-L"],
+    ["5","1vVKfiljt3Uko9RQUhMYkxGKVb9F-YLcI"],["6","1Bs8DNrttwQ4lqY0Y6YMK9oCfRjfZiVtP"],
+    ["7","1uPf-kHfb8MlqfnNnVKEJu0C5unP4dTd8"],["8","1Kx2PwZZy4AM2K7qbGsnDMob__ySYXhUI"],
+    ["9","1iKN4xbrZJWCBd69pWciqwvC_RhMfBBh0"],["10","1AuWpLWWtBPP1vlPSLPdt_qe8bERNDfHM"],
+    ["11","1g8gC4JF9IIThL65fWyifVuAnRUPDGDGS"],["12","1vhTeB9n-5GAz5b-ErJ-VEu79LfNL2Ykb"],
+    ["13","15Ztes7-VTBKnT0wDcz_hEr_-88vKB-Fk"],["14","1B_90lNTjjiVh-cRIAEmxsOLdRhbdy61m"],
+    ["15","1Za3uiahyEtGfjICPJgsQNySTsmN1Bgqs"],["16","1x3RK-nOIKOiBDBneMe_E57N7Xr1im38U"],
+    ["18","1Y7xR6iBuX17hzicWFFpWhO9xmv6g_69r"],["19","1JjpvLEaEz02BH6GJyIutu7vWkwQpLoUj"],
+    ["20","1tyuKvuTSbn7KY4JTmLkauYyJMCs5SFUJ"],["21","14r_HV7lVCYj9rwJK3id7Lto4f0D-5ZeG"],
+    ["22","19Lyi0M8Uyf__OZl_PIdum7Drs90n0pWh"],["23","1OSYGZAgO38cZ8EWOQ8GYmv9PytOHHtw0"],
+    ["24","1_YSsaVSqieQ8p50epv5wDEuBErLsIiEv"],["25","1d89Vmy29puwqTuPcya1-iwK-wzrybmRe"],
+    ["26","19kOYEKKx5fPbQ5M2gAlZmrsq-Ew7j5pz"],["27","18MHdUcdyvrVlN3_6nUvH9A96aU3hjBkT"],
+    ["28","1EGIX1a9IJXJfxbx9-qXeaadhewzq7pZ5"],["29","1HPgk0PBIKR0JQK2o0cXKPi1EYHiXIQWm"]
+  ]},
+  {name:"Environmental geography", files:[
+    ["1. Components of Ecosystem (Class PPT)","1_3hgjC2bx0Rbmyenx9FvQ6UQfozq1LcM"],
+    ["2. Functions of an Ecosystem","16DXDouMKbQ_rs--LamoITEVCTzbEGoo8"],
+    ["4. Anthropogenic Activities & Their Impacts on Environment","1MJdvoEVzI2MEZ_qoNyPnhfbg6wMgFfMG"],
+    ["5. Environmental Issues Local, Regional and Global","1zmQ7AHoaxISBxinzmXXxwQ95XyjKRINX"],
+    ["6. Natural Hazards & Disasters Mitigation Strategies","18099Jisrm3wfRZHzjePHZf4bbvm3oEtT"],
+    ["7. Environmental Hazards and Disasters","1k5O4f8OW1rcS2qI_DAHGHMgrncd6TCnt"],
+    ["8. Climate Change: Socio-Economic and Political Dimensions","1Xt0n7hzuEtZK_PSPamoSZe8ID8nwMlfi"],
+    ["9. Natural and Energy Resources","19EjlmdhdNNrPj1kCfePLnrCOyqg374JA"],
+    ["10. International Treaties, Programmes and Policies","10I7ZaDttP7y8UoQ8-xpbX5vSgXo5_aYd"],
+    ["11. Brundtland Commission & Agenda 21","16SI_EgJ_QREMiPAVnyV98qkLY3Q2zc1a"],
+    ["12. Kyoto Protocol, Paris Agreement & ISA","1q4MRBo2HXpnoTMTYwmpCbjzk6i8XNVYM"],
+    ["13. MDG & SDG Goals","167gqUwoJ8L_wEX1pD_TaEVMYMuNLHgID"],
+    ["14. National Programmes and Policies","1-UE--wRL-lt_mljb2Q7T0T-3kWxXQwAp"],
+    ["15. Environmental Protection Act (1987), NAPCC","1qQtJe4aPREbPcgHs-Nf5YHjipTYnLW65"],
+    ["16. Ozone Layer Depletion and Preservation","1uBOBUbjs_u3GwkUEx-binW31Vai7q0mO"],
+    ["17. Wetlands with Special Reference of India","1MYtStU76ZCjOgixOHBCBD7sswqVe0vWo"],
+    ["18. Soil Genesis Classification & Distribution","1M8uD1oYWcKhZK1-0ACjNIek5DkRNpyfx"],
+    ["19. Zoogeographic Regions","14GNq0j_FMuQnKtPDRallqAE-s7fq0wOq"],
+    ["20. Environmental Ethics, Deep Ecology & Human Ecology","1N4wiDsThSJe3hF6u8Vn671XbioLWVjSc"]
+  ]},
+  {name:"Oceanography", files:[
+    ["1. Relief Features of Oceans","1Pdf7FOdYbfuRXcAgyxxH9-5EZPrNu4NQ"],
+    ["2. Temperature, Range and Salinity of Ocean Water","1eCrgwrklDOSJFB6dG71mwL_yORpUjLrY"],
+    ["3. Ocean Deposits","11erS12KFM3X_HhBB_9weex9qeTk2Zjdn"],
+    ["4. Tide and Ebb","1jNaIzWpahRPbr2ckh_gK7EsxsvQMdZlc"],
+    ["6. Coral Reef - Concept and Theories","1r_0T-_rzFaUgBsWyiIa_mDdeIXo3-yUO"],
+    ["7. Sea Level Change","1JAtTO-e9E7IReZ2s2Ruycs_m-2XORwzJ"],
+    ["8. Tsunami","1JgUYQoUJkEgM4Xd8IjtDaIiX0bn-9hLv"]
+  ]},
+  {name:"ocenography", files:[
+    ["1. Relief Features of Oceans","1iXmrPEff-XrxcB9OkzalNE08uaiutCi6"],
+    ["2. Temperature, Range and Salinity of Ocean Water","1VbWydJvY4mW6XvoPahNlnS5Z77P50Ul8"],
+    ["3. Ocean Deposits","1MivUHBkp7exM2N6c--ypPytOqerlaFN1"],
+    ["4. Tide and Ebb","1veHUuYSxec9poW9GnJ-RhGTTgnAEfKpM"],
+    ["6. Coral Reef - Concept and Theories","1heTzUaN1PGi32jXDnDjqiw3CVHiAQ8u6"],
+    ["7. Sea Level Change","17gW38MwM-TQzOpw2IovPf2kY3JpZJ90r"],
+    ["8. Tsunami","1idi-c_TlLrAT0fmMHM8jxMZgweazO-N5"]
+  ]},
+  {name:"Stat", files:[
+    ["1. Measures of Central Tendency","1LqlBghORgNBMW2drnvLMrmD5L-l8LCVm"],
+    ["2. Dispersion","1KwN8lSvk8MxE_gN1Hq9DYb-HnPr_0Ko5"],
+    ["3. Hypothesis Testing","1iExyJnT22osa4eLIvQ_fizPDTuvUPkiN"]
+  ]},
+  {name:"settlement", files:[
+    ["1. Rural Settlements - Types, Patterns and Distribution","1hnEH817fr1h3S-bksPTTiRQH84_H4bdE"],
+    ["2. Contemporary Problems of Rural Settlement","1_TQRTK-m4CtDgil37eH6ZEQvvU4g2Tgr"],
+    ["3. Factors of Urban Growth","1AmNoRbX8vwX3EEKdBQ2KUN0h0Bxe7gsy"],
+    ["4. Changing Urban Forms","1DtTdtjtab2TEi3E9xd4u3DPXts8t42IA"],
+    ["5. Concepts of Megacities, Global Cities and Edge Cities","1ML72BMkWDi9fDZuc9MQEIH8IWBLCUIZX"],
+    ["6. Social Segregation in the City, Urban Social Area Analysis","1lXUGgj3NJlreUaumqyJKsDMJi7vkWnh5"]
+  ]},
+  {name:"Rs&gis", files:[
+    ["Part-I Basics of Remote Sensing","1YJIw2GiwYhBlJ-nti7OcFjdZhWTcUw-4"],
+    ["Part-II Basics of Remote Sensing","16tMDgmwWI18hj_ZDICdmlQSs464oNcH5"],
+    ["Part-III Basics of Remote Sensing","1FmACa9R3ueSX4EYLnMhA1BUvZjP0QQnj"],
+    ["Part-IV Basics of Remote Sensing","12jdR9qS_TAyb01dtJ1SRzAtv-93adJhU"],
+    ["Representation of Climatic Data","1B_wEiKbcEvpVsHfWMi_DixUOLBcV3lHQ"],
+    ["1. What is GIS","1bhYQfmpF4h2idPhqQ8dB7D8JQGiMbaPs"],
+    ["2. Sources of Geographic Data, Raster, Vector, Attribute","137eLzKZkpIES6C1oBl3KijjawaAf3bKg"],
+    ["3. Functions of GIS, Georeferencing","1PvHx5kp2TZfFoDz_vvgNthGfGoSrBbZD"],
+    ["4. Thematic Cartography, Spatial Decision Support System","1ELy9yw-FCLd9Ol8qRhpur4ofJSrs5Nd6"],
+    ["5. GPS and DEM","1lq9YgAjB-RZUqX9-PGb1jmDN49ae9IWc"],
+    ["6. Coordinate System and Datum","1P1QBFZG3aZEK_mpFUITdb_gwdtH-epEL"]
+  ]}
+];
+
+const tree = document.getElementById('tree');
+const frame = document.getElementById('pdfFrame');
+const emptyState = document.getElementById('emptyState');
+const titlebar = document.getElementById('titlebar');
+const searchBox = document.getElementById('searchBox');
+const pagebar = document.getElementById('pagebar');
+const pageInput = document.getElementById('pageInput');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const goBtn = document.getElementById('goBtn');
+
+let currentId = null;
+let currentPage = 1;
+
+function frameSrcFor(id, page){
+  return 'https://drive.google.com/file/d/' + id + '/preview#page=' + page;
+}
+
+function goToPage(page){
+  if(!currentId) return;
+  if(page < 1) page = 1;
+  currentPage = page;
+  pageInput.value = currentPage;
+  frame.src = frameSrcFor(currentId, currentPage);
+}
+
+function openPdf(id, title, el){
+  document.querySelectorAll('.file.active').forEach(f=>f.classList.remove('active'));
+  if(el) el.classList.add('active');
+  currentId = id;
+  currentPage = 1;
+  pageInput.value = 1;
+  frame.src = frameSrcFor(id, currentPage);
+  frame.style.display='block';
+  emptyState.style.display='none';
+  titlebar.textContent = title;
+  pagebar.style.display='flex';
+}
+
+prevBtn.onclick = ()=> goToPage(currentPage - 1);
+nextBtn.onclick = ()=> goToPage(currentPage + 1);
+goBtn.onclick = ()=> goToPage(parseInt(pageInput.value,10) || 1);
+pageInput.addEventListener('keydown', e=>{
+  if(e.key === 'Enter') goToPage(parseInt(pageInput.value,10) || 1);
+});
+
+function buildFile(name, id){
+  const d = document.createElement('div');
+  d.className='file';
+  d.dataset.name = name.toLowerCase();
+  d.innerHTML = '<span class="ic">📄</span><span>'+name+'</span>';
+  d.onclick = ()=>openPdf(id, name, d);
+  return d;
+}
+
+function buildFolder(node){
+  const wrap = document.createElement('div');
+  wrap.className='folder';
+  wrap.dataset.name = node.name.toLowerCase();
+  const total = (node.files ? node.files.length : 0) + (node.sub ? node.sub.reduce((a,s)=>a+(s.files?s.files.length:0),0) : 0);
+  const label = document.createElement('div');
+  label.className='flabel';
+  label.innerHTML = '<span class="chev">▶</span><span>📁 '+node.name+'</span>'+(total?'<span class="count">'+total+'</span>':'');
+  label.onclick = ()=>wrap.classList.toggle('open');
+  const children = document.createElement('div');
+  children.className='children';
+  if(node.sub){
+    node.sub.forEach(s=>children.appendChild(buildFolder(s)));
+  }
+  if(node.files){
+    if(node.files.length===0){
+      const p = document.createElement('div');
+      p.className='placeholder';
+      p.textContent = 'No files loaded yet';
+      children.appendChild(p);
+    } else {
+      node.files.forEach(([name,id])=>children.appendChild(buildFile(name,id)));
+    }
+  }
+  wrap.appendChild(label);
+  wrap.appendChild(children);
+  return wrap;
+}
+
+data.forEach(n=>tree.appendChild(buildFolder(n)));
+
+searchBox.addEventListener('input', ()=>{
+  const q = searchBox.value.trim().toLowerCase();
+  const allFolders = tree.querySelectorAll('.folder');
+  if(!q){
+    allFolders.forEach(f=>{f.style.display='';f.classList.remove('open');});
+    tree.querySelectorAll('.file').forEach(f=>f.style.display='');
+    return;
+  }
+  allFolders.forEach(f=>f.style.display='none');
+  tree.querySelectorAll('.file').forEach(fileEl=>{
+    const match = fileEl.dataset.name.includes(q);
+    fileEl.style.display = match ? '' : 'none';
+    if(match){
+      let p = fileEl.parentElement;
+      while(p && p.classList && p.classList.contains('children')){
+        const folder = p.parentElement;
+        folder.style.display='';
+        folder.classList.add('open');
+        p = folder.parentElement;
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>
